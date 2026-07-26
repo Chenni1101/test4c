@@ -1,0 +1,20 @@
+@import './base.css';
+
+#app {
+  width: 100%;
+  min-height: 100vh;
+  background: var(--surface-2);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+a {
+  color: var(--brand-blue);
+}
+
+a:hover {
+  color: var(--brand-gold);
+}

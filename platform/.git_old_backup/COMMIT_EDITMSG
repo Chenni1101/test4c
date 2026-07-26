@@ -1,0 +1,16 @@
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch main
+# Your branch is behind 'origin/main' by 2 commits, and can be fast-forwarded.
+#   (use "git pull" to update your local branch)
+#
+# Changes to be committed:
+	new file:   src/services/evidenceStore.js
+#	modified:   src/utils/hash.js
+#	modified:   src/views/Evidence/index.vue
+#	modified:   src/views/Home/index.vue
+#	modified:   src/views/Query/index.vue
+#	deleted:    "\351\241\271\347\233\256"
+#

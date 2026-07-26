@@ -1,0 +1,58 @@
+/* Global theme tokens */
+:root {
+  --brand-blue: #0b4f6c;
+  --brand-blue-strong: #0f172a;
+  --brand-blue-bright: #0ea5e9;
+  --brand-gold: #d4a248;
+  --brand-teal: #14b8a6;
+
+  --surface-1: #ffffff;
+  --surface-2: #f8fafc;
+  --surface-3: #eef2f6;
+  --surface-4: #e2e8f0;
+
+  --text-primary: #0f172a;
+  --text-muted: rgba(15, 23, 42, 0.68);
+  --text-subtle: rgba(15, 23, 42, 0.5);
+
+  --shadow-soft: 0 12px 24px rgba(15, 23, 42, 0.08);
+  --shadow-strong: 0 24px 54px rgba(15, 23, 42, 0.18);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+
+  --font-sans: "HarmonyOS Sans SC", "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
+  --font-serif: "Source Han Serif SC", "STSong", "Songti SC", serif;
+
+  --color-background: var(--surface-2);
+  --color-background-soft: var(--surface-3);
+  --color-background-mute: #edf1f5;
+  --color-border: var(--surface-4);
+  --color-border-hover: rgba(15, 23, 42, 0.2);
+  --color-heading: var(--text-primary);
+  --color-text: var(--text-primary);
+  --section-gap: 160px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  color: var(--text-primary);
+  background: var(--surface-2);
+  transition:
+    color 0.5s,
+    background-color 0.5s;
+  line-height: 1.6;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
