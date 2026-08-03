@@ -24,6 +24,10 @@ public class AssetEntity {
   private String creator;
   private String organization;
 
+  private Long ownerUserId;
+
+  private String assetCode;
+
   @Column(columnDefinition = "TEXT")
   private String description;
 
@@ -37,6 +41,22 @@ public class AssetEntity {
 
   @Column(nullable = false)
   private Instant createdAt;
+
+  public Long getOwnerUserId() {
+    return ownerUserId;
+  }
+
+  public String getAssetCode() {
+    return assetCode;
+  }
+
+  public void setAssetCode(String assetCode) {
+    this.assetCode = assetCode;
+  }
+
+  public void setOwnerUserId(Long ownerUserId) {
+    this.ownerUserId = ownerUserId;
+  }
 
   public Long getId() {
     return id;

@@ -33,6 +33,7 @@
           </a-space>
         </a-tab-pane>
         <a-tab-pane key="file" tab="按文件查询">
+          <a-input v-model:value="expectedHash" class="mb-4" placeholder="粘贴预期 SHA-256（用于篡改核验）" />
           <a-upload-dragger
             v-model:fileList="queryFileList"
             name="file"
@@ -72,16 +73,16 @@
         v-if="queryResult.found"
         status="success"
         title="存证验证通过"
-        sub-title="该资产已在区块链上完成版权存证"
+        sub-title="后端已返回可见范围内的存证/溯源结果，请以模式字段和外部回执复核。"
       >
         <template #extra>
           <a-descriptions :column="2" bordered class="result-desc">
             <a-descriptions-item label="资产名称" :span="2">
-              {{ queryResult.data.assetName }}
+              {{ queryResult.data.assetName || queryResult.data.assetCode || '-' }}
             </a-descriptions-item>
             <a-descriptions-item label="资产哈希">
               <a-typography-text code copyable style="font-size: 12px;">
-                {{ queryResult.data.hash }}
+              {{ queryResult.data.hash || queryResult.data.computedSha256 || '-' }}
               </a-typography-text>
             </a-descriptions-item>
             <a-descriptions-item label="唯一标识">
@@ -95,8 +96,8 @@
               <a-typography-text code copyable>{{ queryResult.data.txId }}</a-typography-text>
             </a-descriptions-item>
             <a-descriptions-item label="区块链网络" :span="2">
-              <a-tag color="blue">百度超级链开放测试网络</a-tag>
-              <a-tag color="green">eleccert合约</a-tag>
+              <a-tag color="blue">{{ queryResult.data.chainNetwork || '后端溯源接口' }}</a-tag>
+              <a-tag :color="queryResult.data.mode === 'DEMO' ? 'orange' : 'green'">{{ queryResult.data.mode || 'UNKNOWN' }}</a-tag>
             </a-descriptions-item>
           </a-descriptions>
           
@@ -159,14 +160,15 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { InboxOutlined, DownloadOutlined, LinkOutlined } from '@ant-design/icons-vue'
-import { recordUsage } from '../../services/assetUsage'
-import { findEvidenceRecord, listEvidenceRecords } from '../../services/evidenceStore'
 import { calculateFileHash } from '../../utils/hash'
+import { getEvidenceByHash } from '@/services/assetApi'
+import { verifyFileHash } from '@/services/authorizationProvenanceApi'
 
 const router = useRouter()
 const queryType = ref('hash')
 const hashQuery = ref('')
 const queryFileList = ref([])
+const expectedHash = ref('')
 const searching = ref(false)
 const queryResult = ref(null)
 
@@ -202,129 +204,41 @@ const historyColumns = [
   { title: '操作', key: 'action', width: 100 }
 ]
 
-const queryHistory = ref(
-  listEvidenceRecords().slice(0, 3).map((record, index) => ({
-    id: index + 1,
-    query: record.hash,
-    time: record.certifyTime,
-    found: true
-  }))
-)
-
-const queryAssets = [
-  {
-    name: '新艺术葡萄少女花瓶',
-    creator: '博物馆数字化团队',
-    organization: '上海对外经贸大学博物馆',
-    hash: 'sha256:9a24fe5d1ac6b7efb0f4',
-    hashHints: ['9a24', 'a1b2']
-  },
-  {
-    name: '韦奇伍德蓝陶双耳瓶',
-    creator: '3D建模团队',
-    organization: '上海对外经贸大学博物馆',
-    hash: 'sha256:5be90c82df3c7ca0f89b',
-    hashHints: ['5be9', 'b2c3']
-  },
-  {
-    name: '绿地粉彩中国风茶具',
-    creator: '鉴定专家组',
-    organization: '上海对外经贸大学博物馆',
-    hash: 'sha256:ef310be4c8d7793512f8',
-    hashHints: ['ef31', 'd4e5']
-  },
-  {
-    name: '粉彩花卉茶壶套组',
-    creator: '展览部',
-    organization: '上海对外经贸大学博物馆',
-    hash: 'sha256:89bc7f22d9ef1c4306a1',
-    hashHints: ['89bc']
-  }
-]
-
-const pickAssetFromQuery = (query) => {
-  const text = query.toLowerCase()
-  return (
-    queryAssets.find((asset) => asset.hashHints.some((hint) => text.includes(hint))) || queryAssets[0]
-  )
-}
-
-const pickAssetFromFile = (fileName) => {
-  const text = fileName.toLowerCase()
-  return queryAssets.find((asset) => text.includes(asset.name.slice(0, 2))) || queryAssets[0]
-}
+const queryHistory = ref([])
 
 const handleHashQuery = async () => {
   if (!hashQuery.value.trim()) {
     message.warning('请输入查询内容')
     return
   }
-  
   searching.value = true
-  
-  // 模拟查询
-  setTimeout(() => {
-    const storedRecord = findEvidenceRecord(hashQuery.value)
-    const matchedAsset = storedRecord || pickAssetFromQuery(hashQuery.value)
-    const mockFound = Boolean(storedRecord) || hashQuery.value.includes('tx_')
-
-    if (mockFound) {
-      queryResult.value = {
-        found: true,
-        data: {
-          assetName: matchedAsset.assetName || matchedAsset.name,
-          hash: matchedAsset.hash,
-          uniqueId: matchedAsset.uniqueId || `H_${matchedAsset.hash.slice(7, 23)}`,
-          creator: matchedAsset.creator,
-          organization: matchedAsset.organization,
-          certifyTime: matchedAsset.certifyTime || '2026-02-20 10:30:45',
-          blockHeight: matchedAsset.blockHeight || 5234567,
-          txId: matchedAsset.txId || 'tx_1708412345678_abc123def456'
-        }
-      }
-      recordUsage(matchedAsset.assetName || matchedAsset.name, '哈希查询')
-    } else {
-      queryResult.value = { found: false }
-    }
-    
-    searching.value = false
-    
-    // 添加到历史记录
+  try {
+    const response = await getEvidenceByHash(hashQuery.value.trim())
+    queryResult.value = { found: true, data: { ...response.data, hash: response.data.fileHash } }
     queryHistory.value.unshift({
       id: Date.now(),
       query: hashQuery.value,
       time: new Date().toLocaleString(),
-      found: mockFound
+      found: true
     })
-  }, 1500)
+  } catch (error) {
+    queryResult.value = { found: false }
+    if (error.status && error.status !== 404) message.error(error.message || '查询失败')
+    queryHistory.value.unshift({ id: Date.now(), query: hashQuery.value, time: new Date().toLocaleString(), found: false })
+  } finally { searching.value = false }
 }
 
 const handleFileQuery = async (info) => {
   if (info.fileList.length > 0) {
+    if (!expectedHash.value.trim()) { message.warning('请先提供预期 SHA-256'); return }
     searching.value = true
-    const fileHash = await calculateFileHash(info.fileList[0].originFileObj)
-    setTimeout(() => {
-      const storedRecord = findEvidenceRecord(fileHash)
-      if (storedRecord) {
-        queryResult.value = {
-          found: true,
-          data: {
-            assetName: storedRecord.assetName,
-            hash: storedRecord.hash,
-            uniqueId: storedRecord.uniqueId,
-            creator: storedRecord.creator,
-            organization: storedRecord.organization,
-            certifyTime: storedRecord.certifyTime,
-            blockHeight: storedRecord.blockHeight,
-            txId: storedRecord.txId
-          }
-        }
-        recordUsage(storedRecord.assetName, '文件校验')
-      } else {
-        queryResult.value = { found: false }
-      }
-      searching.value = false
-    }, 2000)
+    try {
+      const file = info.fileList[0].originFileObj
+      const localHash = await calculateFileHash(file)
+      const response = await verifyFileHash({ file, expectedHash: expectedHash.value.trim() })
+      queryResult.value = { found: response.data.matches, data: { ...response.data, hash: localHash, uniqueId: response.data.versionId, certifyTime: new Date().toLocaleString(), mode: 'DEMO' } }
+      if (!response.data.matches) message.warning('文件哈希与预期值不一致，可能已被篡改或选错文件')
+    } catch (error) { queryResult.value = { found: false }; message.error(error.message || '文件核验失败') } finally { searching.value = false }
   }
 }
 
@@ -333,31 +247,14 @@ const handleAdvancedQuery = () => {
     message.warning('请至少填写一个查询条件')
     return
   }
-  searching.value = true
-  setTimeout(() => {
-    const matchedAsset = queryAssets[1]
-    queryResult.value = {
-      found: true,
-      data: {
-        assetName: matchedAsset.name,
-        hash: matchedAsset.hash,
-        uniqueId: `H_${matchedAsset.hash.slice(7, 23)}`,
-        creator: advancedQuery.creator || matchedAsset.creator,
-        organization: advancedQuery.organization || matchedAsset.organization,
-        certifyTime: '2026-02-19 14:20:30',
-        blockHeight: 5234123,
-        txId: 'tx_1708312345678_def456abc789'
-      }
-    }
-    recordUsage(matchedAsset.name, '高级检索')
-    searching.value = false
-  }, 1500)
+  message.info('当前后端尚未提供按创作者/机构的高级检索接口，请使用资产哈希或文件核验。')
 }
 
 const clearResult = () => {
   queryResult.value = null
   hashQuery.value = ''
   queryFileList.value = []
+  expectedHash.value = ''
 }
 
 const requery = (record) => {
@@ -367,11 +264,11 @@ const requery = (record) => {
 }
 
 const downloadCertificate = () => {
-  message.success('存证证书下载中...')
+  message.info('当前仅支持从资产详情页导出溯源报告。')
 }
 
 const viewOnChain = () => {
-  message.info('正在跳转到区块链浏览器...')
+  message.info('Demo 交易不提供真实链浏览器跳转。')
 }
 </script>
 

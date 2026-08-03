@@ -39,6 +39,32 @@ public class ChainTransactionEntity {
   @Column(nullable = false)
   private Instant createdAt;
 
+  private String assetVersionId;
+  private String provider;
+  private String mode;
+  private String network;
+  private String idempotencyKey;
+  private String requestDigest;
+  private String errorCode;
+  private String errorMessage;
+  private Integer attemptNo;
+  private Instant confirmedAt;
+  private Long chainBlockHeight;
+  private Instant updatedAt;
+
+  public Long getId() { return id; }
+  public String getAssetVersionId() { return assetVersionId; }
+  public String getProvider() { return provider; }
+  public String getMode() { return mode; }
+  public String getNetwork() { return network; }
+  public String getIdempotencyKey() { return idempotencyKey; }
+  public String getErrorCode() { return errorCode; }
+  public String getErrorMessage() { return errorMessage; }
+  public Integer getAttemptNo() { return attemptNo; }
+  public Instant getConfirmedAt() { return confirmedAt; }
+  public Long getChainBlockHeight() { return chainBlockHeight; }
+  public Instant getUpdatedAt() { return updatedAt; }
+
   public String getTxId() {
     return txId;
   }
@@ -102,4 +128,17 @@ public class ChainTransactionEntity {
   public void setCreatedAt(Instant createdAt) {
     this.createdAt = createdAt;
   }
+
+  public void setAssetVersionId(String assetVersionId) { this.assetVersionId = assetVersionId; }
+  public void setProvider(String provider) { this.provider = provider; }
+  public void setMode(String mode) { this.mode = mode; }
+  public void setNetwork(String network) { this.network = network; }
+  public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
+  public void setRequestDigest(String requestDigest) { this.requestDigest = requestDigest; }
+  public void setErrorCode(String errorCode) { this.errorCode = errorCode; }
+  public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+  public void setAttemptNo(Integer attemptNo) { this.attemptNo = attemptNo; }
+  public void setConfirmedAt(Instant confirmedAt) { this.confirmedAt = confirmedAt; }
+  public void setChainBlockHeight(Long chainBlockHeight) { this.chainBlockHeight = chainBlockHeight; }
+  public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

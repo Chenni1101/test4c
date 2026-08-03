@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConfigurationProperties(prefix = "evidence.chain")
 public class ChainProperties {
+  private String mode = "DEMO";
   private String network;
   private String contractName;
   private String nodeEndpoint;
@@ -13,6 +14,9 @@ public class ChainProperties {
   public String getNetwork() {
     return network;
   }
+
+  public String getMode() { return mode; }
+  public void setMode(String mode) { this.mode = mode; }
 
   public void setNetwork(String network) {
     this.network = network;

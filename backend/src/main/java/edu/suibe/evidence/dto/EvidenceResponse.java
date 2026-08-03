@@ -13,4 +13,5 @@ public record EvidenceResponse(
     String chainNetwork,
     String contractName,
     String certifyTime,
-    String status) {}
+    String status,
+    String mode) {}

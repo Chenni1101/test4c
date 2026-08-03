@@ -8,17 +8,22 @@ import {
   SearchOutlined,
   BarChartOutlined,
   BlockOutlined,
-  RobotOutlined
+  RobotOutlined,
+  AuditOutlined,
+  FileSearchOutlined
 } from '@ant-design/icons-vue'
+import { useAuthStore } from '@/stores/auth'
 
 const collapsed = ref(false)
 const isMobile = ref(false)
+const showDemoNotice = ref(true)
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 
 const selectedKeys = computed(() => [route.name as string])
 
-const menuItems = [
+const allMenuItems = [
   {
     key: 'home',
     icon: HomeOutlined,
@@ -43,6 +48,8 @@ const menuItems = [
     label: '存证查询',
     title: '存证查询'
   },
+  { key: 'authorization', icon: AuditOutlined, label: '授权管理', title: '授权管理' },
+  { key: 'trace', icon: FileSearchOutlined, label: '全链路核验', title: '全链路核验' },
   {
     key: 'market',
     icon: RobotOutlined,
@@ -56,6 +63,11 @@ const menuItems = [
     title: '性能展示'
   }
 ]
+
+const menuItems = computed(() => allMenuItems.filter((item) => {
+  if (['evidence', 'asset', 'query', 'authorization', 'trace'].includes(item.key)) return auth.hasAnyRole(['CREATOR', 'MUSEUM_ADMIN', 'SUPER_ADMIN'])
+  return true
+}))
 
 const mainOffset = computed(() => {
   if (isMobile.value) return 0
@@ -71,6 +83,7 @@ const updateIsMobile = () => {
 }
 
 onMounted(() => {
+  auth.hydrate()
   updateIsMobile()
   window.addEventListener('resize', updateIsMobile)
 })
@@ -84,6 +97,11 @@ const handleMenuClick = ({ key }: { key: string }) => {
   if (isMobile.value) {
     collapsed.value = true
   }
+}
+
+const handleLogout = async () => {
+  auth.logout()
+  await router.push('/login')
 }
 </script>
 
@@ -133,8 +151,12 @@ const handleMenuClick = ({ key }: { key: string }) => {
           </div>
         </div>
         <div v-if="!isMobile" class="header-right">
-          <a-tag color="green" class="status-tag">测试网络已连接</a-tag>
-          <a-tag color="gold" class="status-tag status-gold">稳定运行</a-tag>
+          <a-space size="small"><a-switch v-model:checked="showDemoNotice" size="small" /><a-tag v-if="showDemoNotice" color="orange" class="status-tag">DEMO / Mock 模式</a-tag></a-space>
+          <template v-if="auth.isAuthenticated">
+            <a-tag color="blue" class="status-tag">{{ auth.user?.displayName }} · {{ auth.roles.join(' / ') }}</a-tag>
+            <a-button size="small" @click="handleLogout">退出</a-button>
+          </template>
+          <a-button v-else size="small" type="primary" @click="router.push('/login')">登录</a-button>
         </div>
       </a-layout-header>
       <a-layout-content class="app-content" :class="{ 'app-content-mobile': isMobile }">

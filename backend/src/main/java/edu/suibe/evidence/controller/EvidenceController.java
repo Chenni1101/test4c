@@ -4,7 +4,10 @@ import edu.suibe.evidence.dto.EvidenceCreateRequest;
 import edu.suibe.evidence.dto.EvidenceResponse;
 import edu.suibe.evidence.service.EvidenceService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
 import java.util.List;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api")
+@Validated
 public class EvidenceController {
   private final EvidenceService evidenceService;
 
@@ -33,6 +37,7 @@ public class EvidenceController {
    * @return 存证结果（包含交易ID、区块高度等）
    */
   @PostMapping("/evidence")
+  @PreAuthorize("hasAnyRole('CREATOR', 'MUSEUM_ADMIN', 'SUPER_ADMIN')")
   public EvidenceResponse create(@Valid @RequestBody EvidenceCreateRequest request) {
     return evidenceService.createEvidence(request);
   }
@@ -44,7 +49,12 @@ public class EvidenceController {
    * @return 存证详情
    */
   @GetMapping("/evidence/{hash}")
-  public EvidenceResponse getByHash(@PathVariable String hash) {
+  public EvidenceResponse getByHash(
+      @PathVariable
+          @Pattern(
+              regexp = "^sha256:[a-fA-F0-9]{64}$",
+              message = "hash 必须是 sha256: 前缀的 64 位十六进制摘要")
+          String hash) {
     return evidenceService.getEvidenceByHash(hash);
   }
 

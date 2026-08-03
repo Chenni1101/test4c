@@ -1,0 +1,12 @@
+# IDE metadata and build output must remain local.
+**/.idea/
+**/target/
+**/node_modules/
+**/dist/
+*.iml
+
+# Local environment files may contain secrets. Keep only explicit example files.
+.env
+.env.*
+!.env.example
+!.env.production.example

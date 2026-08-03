@@ -1,0 +1,6 @@
+package edu.suibe.evidence.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record AuthorizationRevokeRequest(@NotBlank @Size(max = 1000) String reason) {}
