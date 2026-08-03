@@ -45,6 +45,33 @@
           </a-upload-dragger>
         </a-card>
 
+        <a-card v-if="recognitionLoading || recognition" title="AI 辅助识别" class="mb-4">
+          <a-skeleton v-if="recognitionLoading" active :paragraph="{ rows: 3 }" />
+          <template v-else-if="recognition">
+            <a-alert
+              type="warning"
+              show-icon
+              message="AI 结果仅供辅助，不构成权威文物鉴定或版权权属结论。请由人工核验后再应用。"
+              class="mb-3"
+            />
+            <a-descriptions :column="{ xs: 1, sm: 2 }" size="small" bordered>
+              <a-descriptions-item label="来源">
+                <a-tag :color="recognition.source === 'API' ? 'blue' : 'orange'">
+                  {{ recognition.source === 'API' ? 'AI 接口结果' : '本地 Demo fallback' }}
+                </a-tag>
+              </a-descriptions-item>
+              <a-descriptions-item label="文物类型">{{ recognition.artifactType }}</a-descriptions-item>
+              <a-descriptions-item label="年代">{{ recognition.era }}</a-descriptions-item>
+              <a-descriptions-item label="关键词">
+                <a-tag v-for="keyword in recognition.keywords" :key="keyword">{{ keyword }}</a-tag>
+              </a-descriptions-item>
+              <a-descriptions-item label="辅助描述" :span="2">{{ recognition.description }}</a-descriptions-item>
+            </a-descriptions>
+            <p class="ai-notice">{{ recognition.notice }}</p>
+            <a-button type="primary" @click="applyRecognition">人工确认并应用到表单</a-button>
+          </template>
+        </a-card>
+
         <!-- 资产信息表单 -->
         <a-card title="2. 资产元数据" class="mb-4">
           <a-form
@@ -115,10 +142,12 @@
         <a-card title="4. 链上存证" class="mb-4">
           <a-descriptions :column="1" size="small">
             <a-descriptions-item label="区块链网络">
-              <a-tag color="blue">百度超级链测试网</a-tag>
+              <a-tag :color="issuedAsset?.mode === 'DEMO' ? 'orange' : 'blue'">
+                {{ issuedAsset?.mode === 'DEMO' ? 'Demo 链网关（非真实链）' : '以后端发行接口返回为准' }}
+              </a-tag>
             </a-descriptions-item>
             <a-descriptions-item label="合约名称">
-              eleccert
+              {{ issuedAsset?.mode === 'DEMO' ? 'Demo 模式不适用' : '由后端链网关配置' }}
             </a-descriptions-item>
             <a-descriptions-item label="存证状态">
               <a-tag :color="txResult.status === 'success' ? 'green' : txResult.status === 'pending' ? 'orange' : 'default'">
@@ -155,17 +184,19 @@
     </a-row>
 
     <!-- 存证成功弹窗 -->
-    <a-modal v-model:open="showSuccessModal" title="存证成功" :footer="null" width="92%">
-      <a-result status="success" title="版权存证成功！" sub-title="您的数字资产已成功上链，获得不可篡改的版权证明">
+    <a-modal v-model:open="showSuccessModal" title="资产发行结果" :footer="null" width="92%">
+      <a-result :status="txResult.status === 'success' ? 'success' : 'warning'" :title="txResult.status === 'success' ? '资产发行链路已确认' : '资产发行已提交，等待链路确认'" :sub-title="txResult.notice">
         <template #extra>
           <a-descriptions :column="1" bordered size="small">
             <a-descriptions-item label="交易ID">{{ txResult.txId }}</a-descriptions-item>
-            <a-descriptions-item label="虚拟NFT ID">{{ virtualNftId }}</a-descriptions-item>
+            <a-descriptions-item label="资产编号">{{ virtualNftId }}</a-descriptions-item>
             <a-descriptions-item label="区块高度">{{ txResult.blockHeight }}</a-descriptions-item>
             <a-descriptions-item label="存证时间">{{ txResult.time }}</a-descriptions-item>
           </a-descriptions>
           <div class="success-actions">
+            <a-button type="primary" @click="router.push(`/assets/${virtualNftId}`)">查看资产详情</a-button>
             <a-button type="primary" @click="goToQuery">查看存证记录</a-button>
+            <a-button @click="downloadCertificate">下载 PDF 存证证书</a-button>
             <a-button @click="resetAndClose">继续存证</a-button>
           </div>
         </template>
@@ -180,13 +211,20 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { SafetyCertificateOutlined, InboxOutlined } from '@ant-design/icons-vue'
 import { calculateFileHash } from '../../utils/hash'
-import { saveEvidenceRecord } from '../../services/evidenceStore'
+import { useAuthStore } from '@/stores/auth'
+import { issueAsset, getChainTransaction } from '@/services/assetIssuanceApi'
+import { recognizeArtifact } from '@/services/artifactRecognition'
+import { downloadEvidenceCertificate } from '@/services/evidenceCertificate'
 
 const router = useRouter()
+const auth = useAuthStore()
 const fileList = ref([])
 const submitting = ref(false)
 const showSuccessModal = ref(false)
 const virtualNftId = ref('')
+const recognitionLoading = ref(false)
+const recognition = ref(null)
+const issuedAsset = ref(null)
 
 const formState = reactive({
   assetName: '',
@@ -208,7 +246,8 @@ const txResult = reactive({
   statusText: '待提交',
   txId: '',
   blockHeight: '',
-  time: ''
+  time: '',
+  notice: ''
 })
 
 const defensePoints = [
@@ -219,13 +258,13 @@ const defensePoints = [
   },
   {
     tag: '安全',
-    title: '链上存证',
-    desc: '多节点共识写入区块链，防篡改。'
+    title: '链路记录',
+    desc: '链路状态以服务端返回为准；Demo 模式不代表真实区块链交易。'
   },
   {
     tag: '效率',
-    title: '快速确权',
-    desc: '秒级完成确权流程，适配日常确权需求。'
+    title: '快速登记',
+    desc: '支持资产登记与核验；不构成法律意义上的版权确权结论。'
   }
 ]
 
@@ -246,8 +285,41 @@ const beforeUpload = (file) => {
 
 const handleFileChange = (info) => {
   if (info.fileList.length > 0) {
-    generateHash(info.fileList[0].originFileObj)
+    const file = info.fileList[0].originFileObj
+    generateHash(file).catch(() => message.error('文件哈希计算失败'))
+    runRecognition(file)
+  } else {
+    recognition.value = null
   }
+}
+
+const runRecognition = async (file) => {
+  if (!file?.type?.startsWith('image/')) {
+    recognition.value = null
+    return
+  }
+  recognitionLoading.value = true
+  try {
+    recognition.value = await recognizeArtifact(file)
+  } catch (_) {
+    recognition.value = null
+    message.warning('AI 辅助识别暂不可用，仍可继续人工填写资产信息')
+  } finally {
+    recognitionLoading.value = false
+  }
+}
+
+const applyRecognition = () => {
+  if (!recognition.value) return
+  const result = recognition.value
+  formState.assetType = ['image', 'video', 'audio', '3d', 'document', 'other'].includes(result.artifactType)
+    ? result.artifactType
+    : formState.assetType || 'image'
+  formState.keywords = [...new Set([...(formState.keywords || []), ...result.keywords])]
+  if (!formState.description) {
+    formState.description = `${result.description}\n\nAI 辅助年代：${result.era}（仅供人工核验）`
+  }
+  message.success('已将 AI 辅助信息填入表单，请继续人工核验')
 }
 
 const generateHash = async (file) => {
@@ -273,39 +345,62 @@ const handleSubmit = async () => {
     message.warning('请填写资产名称')
     return
   }
+  if (!formState.assetType || !formState.creator) {
+    message.warning('请填写资产类型和创作者')
+    return
+  }
+  if (!auth.isAuthenticated) {
+    message.warning('请先登录后再发行资产')
+    router.push('/login')
+    return
+  }
 
   submitting.value = true
   txResult.status = 'pending'
-  txResult.statusText = '存证中...'
-
-  // 模拟上链过程
-  setTimeout(() => {
-    txResult.status = 'success'
-    txResult.statusText = '存证成功'
-    txResult.txId = 'tx_' + hashInfo.fileHash.slice(7, 23) + '_' + Date.now().toString(36).slice(-6)
-    txResult.blockHeight = 5200000 + Math.abs(parseInt(hashInfo.fileHash.slice(7, 15), 16) % 900000)
-    txResult.time = new Date().toLocaleString()
-    virtualNftId.value = buildVirtualNftId()
-    saveEvidenceRecord({
-      assetName: formState.assetName,
-      assetType: formState.assetType,
-      creator: formState.creator || '未填写',
-      organization: formState.organization || '未填写',
-      description: formState.description,
-      keywords: formState.keywords,
-      hash: hashInfo.fileHash,
-      uniqueId: hashInfo.uniqueId,
-      certifyTime: txResult.time,
-      blockHeight: txResult.blockHeight,
-      txId: txResult.txId,
-      cid: `bafybei${hashInfo.fileHash.slice(7, 31)}`,
-      chainNetwork: '百度超级链开放测试网络',
-      contractName: 'eleccert'
+  txResult.statusText = '正在调用后端发行接口...'
+  try {
+    const file = fileList.value[0].originFileObj
+    const response = await issueAsset({
+      idempotencyKey: `web-issue-${crypto.randomUUID()}`,
+      asset: {
+        assetName: formState.assetName,
+        assetType: formState.assetType,
+        creator: formState.creator,
+        organization: formState.organization || undefined,
+        description: formState.description || undefined,
+        keywords: formState.keywords,
+        contentSha256: hashInfo.fileHash,
+        originalFilename: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        fileSizeBytes: file.size
+      }
     })
-    submitting.value = false
+    const result = response.data
+    txResult.status = result.chainStatus === 'CONFIRMED' ? 'success' : 'pending'
+    txResult.statusText = result.chainStatus === 'CONFIRMED' ? '发行链路已确认' : result.chainStatus
+    txResult.txId = result.chainTxId || ''
+    txResult.blockHeight = ''
+    txResult.time = new Date().toLocaleString()
+    txResult.notice = result.notice || '请以接口返回的模式和交易状态为准。'
+    virtualNftId.value = result.assetCode
+    issuedAsset.value = result
+    if (result.chainTransactionId) {
+      try {
+        const transactionResponse = await getChainTransaction({ transactionId: result.chainTransactionId })
+        txResult.blockHeight = transactionResponse.data?.blockHeight || ''
+      } catch (_) {
+        // 交易详情查询失败不影响已完成的核心发行结果。
+      }
+    }
     showSuccessModal.value = true
-    message.success('存证成功！')
-  }, 2000)
+    message.success('后端已返回资产发行结果')
+  } catch (error) {
+    txResult.status = 'failed'
+    txResult.statusText = '发行失败'
+    message.error(error.message || '资产发行失败')
+  } finally {
+    submitting.value = false
+  }
 }
 
 const resetForm = () => {
@@ -328,9 +423,32 @@ const resetForm = () => {
     statusText: '待提交',
     txId: '',
     blockHeight: '',
-    time: ''
+    time: '',
+    notice: ''
   })
   virtualNftId.value = ''
+  recognition.value = null
+  issuedAsset.value = null
+}
+
+const downloadCertificate = async () => {
+  if (!issuedAsset.value || !virtualNftId.value) {
+    message.warning('暂无可生成证书的发行结果')
+    return
+  }
+  try {
+    await downloadEvidenceCertificate({
+      assetCode: virtualNftId.value,
+      contentSha256: issuedAsset.value.contentSha256 || hashInfo.fileHash,
+      cid: issuedAsset.value.cid || '',
+      transactionId: txResult.txId,
+      blockHeight: txResult.blockHeight || '未返回',
+      mode: issuedAsset.value.mode || 'UNKNOWN'
+    })
+    message.success('PDF 存证证书已开始下载')
+  } catch (error) {
+    message.error(error?.message || 'PDF 证书生成失败')
+  }
 }
 
 const goToQuery = () => {
@@ -382,6 +500,16 @@ const resetAndClose = () => {
 
 .mb-4 {
   margin-bottom: 16px;
+}
+
+.mb-3 {
+  margin-bottom: 12px;
+}
+
+.ai-notice {
+  margin: 12px 0;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .text-muted {

@@ -48,4 +48,12 @@ public class AuditLogEntity {
   public void setCreatedAt(Instant createdAt) {
     this.createdAt = createdAt;
   }
+
+  public String getOperatorName() {
+    return operatorName;
+  }
+
+  public String getAction() {
+    return action;
+  }
 }

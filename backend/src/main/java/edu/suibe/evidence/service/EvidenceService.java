@@ -1,16 +1,17 @@
 package edu.suibe.evidence.service;
 
 import edu.suibe.evidence.config.ChainProperties;
+import edu.suibe.evidence.config.EvidenceModeProperties;
 import edu.suibe.evidence.dto.EvidenceCreateRequest;
 import edu.suibe.evidence.dto.EvidenceResponse;
 import edu.suibe.evidence.entity.AssetEntity;
-import edu.suibe.evidence.entity.AuditLogEntity;
 import edu.suibe.evidence.entity.ChainTransactionEntity;
 import edu.suibe.evidence.entity.EvidenceRecordEntity;
 import edu.suibe.evidence.repository.AssetRepository;
-import edu.suibe.evidence.repository.AuditLogRepository;
 import edu.suibe.evidence.repository.ChainTransactionRepository;
 import edu.suibe.evidence.repository.EvidenceRecordRepository;
+import edu.suibe.evidence.security.CurrentUserProvider;
+import edu.suibe.evidence.security.UserAccountPrincipal;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.Instant;
 import java.util.List;
@@ -30,12 +31,13 @@ public class EvidenceService {
   private final EvidenceRecordRepository evidenceRecordRepository;
   // 区块链交易表：存储所有链上交易的完整请求与响应
   private final ChainTransactionRepository chainTransactionRepository;
-  // 审计日志表：记录所有关键操作，用于追溯和合规审计
-  private final AuditLogRepository auditLogRepository;
   // 区块链网关：封装与百度超级链的所有交互逻辑
   private final BlockchainGateway blockchainGateway;
   // 区块链配置：存储节点地址、合约名称、网络ID等配置信息
   private final ChainProperties chainProperties;
+  private final EvidenceModeProperties evidenceModeProperties;
+  private final CurrentUserProvider currentUserProvider;
+  private final AuditService auditService;
 
   /**
    * 构造函数注入依赖（Spring推荐的依赖注入方式）
@@ -44,15 +46,19 @@ public class EvidenceService {
       AssetRepository assetRepository,
       EvidenceRecordRepository evidenceRecordRepository,
       ChainTransactionRepository chainTransactionRepository,
-      AuditLogRepository auditLogRepository,
       BlockchainGateway blockchainGateway,
-      ChainProperties chainProperties) {
+      ChainProperties chainProperties,
+      EvidenceModeProperties evidenceModeProperties,
+      CurrentUserProvider currentUserProvider,
+      AuditService auditService) {
     this.assetRepository = assetRepository;
     this.evidenceRecordRepository = evidenceRecordRepository;
     this.chainTransactionRepository = chainTransactionRepository;
-    this.auditLogRepository = auditLogRepository;
     this.blockchainGateway = blockchainGateway;
     this.chainProperties = chainProperties;
+    this.evidenceModeProperties = evidenceModeProperties;
+    this.currentUserProvider = currentUserProvider;
+    this.auditService = auditService;
   }
 
   /**
@@ -67,7 +73,12 @@ public class EvidenceService {
   public EvidenceResponse createEvidence(EvidenceCreateRequest request) {
     return evidenceRecordRepository
         .findByFileHash(request.fileHash())
-        .map(this::toResponse)
+        .map(
+            evidence -> {
+              AssetEntity asset = findAsset(evidence);
+              assertCanRead(asset, currentUserProvider.requireUser());
+              return toResponse(evidence, asset);
+            })
         .orElseGet(() -> createNewEvidence(request));
   }
 
@@ -79,10 +90,15 @@ public class EvidenceService {
    */
   @Transactional(readOnly = true)
   public EvidenceResponse getEvidenceByHash(String hash) {
-    return evidenceRecordRepository
-        .findByFileHash(hash)
-        .map(this::toResponse)
-        .orElseThrow(() -> new EntityNotFoundException("未找到该哈希对应的存证记录"));
+    EvidenceRecordEntity evidence =
+        evidenceRecordRepository
+            .findByFileHash(hash)
+            .orElseThrow(() -> new EntityNotFoundException("未找到该哈希对应的存证记录"));
+    AssetEntity asset = findAsset(evidence);
+    UserAccountPrincipal actor = currentUserProvider.requireUser();
+    assertCanRead(asset, actor);
+    auditService.record("READ_EVIDENCE", actor.getUsername(), hash, "asset=" + asset.getAssetName());
+    return toResponse(evidence, asset);
   }
 
   /**
@@ -92,7 +108,12 @@ public class EvidenceService {
    */
   @Transactional(readOnly = true)
   public List<EvidenceResponse> listEvidence() {
-    return evidenceRecordRepository.findAll().stream().map(this::toResponse).toList();
+    UserAccountPrincipal actor = currentUserProvider.requireUser();
+    return evidenceRecordRepository.findAll().stream()
+        .map(evidence -> new EvidenceWithAsset(evidence, findAsset(evidence)))
+        .filter(item -> canRead(item.asset(), actor))
+        .map(item -> toResponse(item.evidence(), item.asset()))
+        .toList();
   }
 
   /**
@@ -102,13 +123,16 @@ public class EvidenceService {
    */
   private EvidenceResponse createNewEvidence(EvidenceCreateRequest request) {
     Instant now = Instant.now();
+    UserAccountPrincipal actor = currentUserProvider.requireUser();
+    assertCanCreate(actor);
 
     // 1. 保存链下业务数据：数字资产元信息
     AssetEntity asset = new AssetEntity();
     asset.setAssetName(request.assetName());
     asset.setAssetType(request.assetType());
     asset.setCreator(request.creator());
-    asset.setOrganization(request.organization());
+    asset.setOrganization(resolveOrganization(request.organization(), actor));
+    asset.setOwnerUserId(actor.getId());
     asset.setDescription(request.description());
     asset.setFileHash(request.fileHash());
     asset.setCid(request.cid());
@@ -118,13 +142,26 @@ public class EvidenceService {
 
     // 2. 调用区块链网关，将关键证据上链存证
     // 上链内容：文件哈希、CID、时间戳、权属信息（仅约1KB数据）
-    ChainReceipt receipt = blockchainGateway.saveEvidence(request);
+    String authenticatedOwner = actor.getUsername();
+    EvidenceCreateRequest chainRequest =
+        new EvidenceCreateRequest(
+            request.assetName(),
+            request.assetType(),
+            request.creator(),
+            savedAsset.getOrganization(),
+            request.description(),
+            request.keywords(),
+            request.fileHash(),
+            request.cid(),
+            authenticatedOwner,
+            request.timestampIso());
+    ChainReceipt receipt = blockchainGateway.saveEvidence(chainRequest);
 
     // 3. 保存链上存证记录：关联资产ID与链上交易信息
     EvidenceRecordEntity evidence = new EvidenceRecordEntity();
     evidence.setAssetId(savedAsset.getId());
     evidence.setFileHash(request.fileHash());
-    evidence.setOwnerName(request.ownerName());
+    evidence.setOwnerName(authenticatedOwner);
     evidence.setTimestampIso(request.timestampIso());
     evidence.setChainNetwork(chainProperties.getNetwork());
     evidence.setContractName(chainProperties.getContractName());
@@ -139,27 +176,23 @@ public class EvidenceService {
     transaction.setFileHash(request.fileHash());
     transaction.setContractName(chainProperties.getContractName());
     transaction.setMethodName("save");
-    transaction.setRequestPayload(request.toString());
+    transaction.setRequestPayload(chainRequest.toString());
     transaction.setResponsePayload(receipt.responsePayload());
     transaction.setStatus("CONFIRMED");
     transaction.setCreatedAt(now);
     chainTransactionRepository.save(transaction);
 
     // 5. 写入审计日志：记录所有关键操作，全程可追溯
-    writeAudit("CREATE_EVIDENCE", request.ownerName(), request.fileHash(), "asset=" + request.assetName());
+    auditService.record("CREATE_EVIDENCE", actor.getUsername(), request.fileHash(), "asset=" + request.assetName());
 
-    return toResponse(savedEvidence);
+    return toResponse(savedEvidence, savedAsset);
   }
 
   /**
    * 实体类转响应DTO
    * 封装数据库实体到前端展示数据的转换逻辑
    */
-  private EvidenceResponse toResponse(EvidenceRecordEntity evidence) {
-    AssetEntity asset =
-        assetRepository
-            .findByFileHash(evidence.getFileHash())
-            .orElseThrow(() -> new EntityNotFoundException("存证记录缺少资产信息"));
+  private EvidenceResponse toResponse(EvidenceRecordEntity evidence, AssetEntity asset) {
     return new EvidenceResponse(
         asset.getAssetName(),
         asset.getAssetType(),
@@ -173,20 +206,47 @@ public class EvidenceService {
         evidence.getChainNetwork(),
         evidence.getContractName(),
         evidence.getTimestampIso(),
-        asset.getStatus());
+        asset.getStatus(),
+        evidenceModeProperties.getMode());
   }
 
-  /**
-   * 写入审计日志
-   * 记录操作类型、操作人、目标哈希和详细信息
-   */
-  private void writeAudit(String action, String operatorName, String targetHash, String detail) {
-    AuditLogEntity auditLog = new AuditLogEntity();
-    auditLog.setAction(action);
-    auditLog.setOperatorName(operatorName);
-    auditLog.setTargetHash(targetHash);
-    auditLog.setDetail(detail);
-    auditLog.setCreatedAt(Instant.now());
-    auditLogRepository.save(auditLog);
+  private AssetEntity findAsset(EvidenceRecordEntity evidence) {
+    return assetRepository
+        .findByFileHash(evidence.getFileHash())
+        .orElseThrow(() -> new EntityNotFoundException("存证记录缺少资产信息"));
   }
+
+  private void assertCanCreate(UserAccountPrincipal actor) {
+    if (actor.hasRole("SUPER_ADMIN") || actor.hasRole("MUSEUM_ADMIN") || actor.hasRole("CREATOR")) return;
+    throw new org.springframework.security.access.AccessDeniedException("当前角色不能提交存证");
+  }
+
+  private void assertCanRead(AssetEntity asset, UserAccountPrincipal actor) {
+    if (!canRead(asset, actor)) {
+      throw new org.springframework.security.access.AccessDeniedException("无权访问该资产");
+    }
+  }
+
+  private boolean canRead(AssetEntity asset, UserAccountPrincipal actor) {
+    if (actor.hasRole("SUPER_ADMIN")) return true;
+    if (actor.hasRole("MUSEUM_ADMIN")) {
+      return actor.getOrganization() != null && actor.getOrganization().equals(asset.getOrganization());
+    }
+    return actor.hasRole("CREATOR") && actor.getId().equals(asset.getOwnerUserId());
+  }
+
+  private String resolveOrganization(String requestedOrganization, UserAccountPrincipal actor) {
+    if (actor.hasRole("MUSEUM_ADMIN")) {
+      if (actor.getOrganization() == null || actor.getOrganization().isBlank()) {
+        throw new IllegalStateException("文博管理员必须关联所属机构");
+      }
+      return actor.getOrganization();
+    }
+    if (actor.hasRole("CREATOR") && actor.getOrganization() != null && !actor.getOrganization().isBlank()) {
+      return actor.getOrganization();
+    }
+    return requestedOrganization;
+  }
+
+  private record EvidenceWithAsset(EvidenceRecordEntity evidence, AssetEntity asset) {}
 }

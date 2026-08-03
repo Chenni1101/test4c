@@ -1,0 +1,40 @@
+# 本地开发 / IDEA 演示：无需外部数据库，重启后数据会清空。
+spring:
+  datasource:
+    url: jdbc:h2:mem:evidence;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+evidence:
+  mode: DEMO
+  security:
+    cors-allowed-origins:
+      - http://localhost:5173
+      # 当前答辩演示的前端隧道域名；生产环境应替换为受控 HTTPS 域名。
+      - https://metal-bugs-wait.loca.lt
+  jwt:
+    # 仅限本地 H2 演示；生产环境必须通过 EVIDENCE_JWT_SECRET 注入随机 32 字节以上密钥。
+    secret: ${EVIDENCE_JWT_SECRET:local-development-secret-change-before-production-2026}
+    expiration-minutes: 120
+  bootstrap:
+    enabled: true
+    username: ${EVIDENCE_BOOTSTRAP_USERNAME:demo-super-admin}
+    password: ${EVIDENCE_BOOTSTRAP_PASSWORD:demo-change-me}
+    organization: ${EVIDENCE_BOOTSTRAP_ORGANIZATION:DEMO_MUSEUM}
+  chain:
+    mode: DEMO
+    network: 百度超级链开放测试网络
+    contract-name: eleccert
+    node-endpoint: http://127.0.0.1:37101
+  ipfs:
+    # Demo CID 只用于演示定位，不能被表述为真实 IPFS CID。
+    mode: DEMO
+    provider-order:
+      - DEMO_LOCAL
