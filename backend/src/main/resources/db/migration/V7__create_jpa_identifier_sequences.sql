@@ -1,0 +1,7 @@
+-- PostgreSQL + Hibernate 6 对 GenerationType.AUTO 使用实体级序列。
+-- 早期原型迁移只建了表，未建序列；生产环境启用 ddl-auto=validate 时必须由 Flyway 显式维护。
+CREATE SEQUENCE IF NOT EXISTS assets_seq START WITH 1 INCREMENT BY 50;
+CREATE SEQUENCE IF NOT EXISTS audit_logs_seq START WITH 1 INCREMENT BY 50;
+CREATE SEQUENCE IF NOT EXISTS chain_transactions_seq START WITH 1 INCREMENT BY 50;
+CREATE SEQUENCE IF NOT EXISTS evidence_records_seq START WITH 1 INCREMENT BY 50;
+CREATE SEQUENCE IF NOT EXISTS users_seq START WITH 1 INCREMENT BY 50;
