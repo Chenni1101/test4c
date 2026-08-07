@@ -50,10 +50,10 @@ public class EvidenceController {
    */
   @GetMapping("/evidence/{hash}")
   public EvidenceResponse getByHash(
-      @PathVariable
+      @PathVariable("hash")
           @Pattern(
-              regexp = "^sha256:[a-fA-F0-9]{64}$",
-              message = "hash 必须是 sha256: 前缀的 64 位十六进制摘要")
+              regexp = "(?i)^(sha256:)?[a-f0-9]{64}$",
+              message = "hash 必须是 64 位十六进制摘要，可选 sha256: 前缀")
           String hash) {
     return evidenceService.getEvidenceByHash(hash);
   }

@@ -1,6 +1,7 @@
 import client from './apiClient'
 
 export type EvidenceAsset = {
+  assetCode?: string
   assetName: string
   assetType: string
   creator: string

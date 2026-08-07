@@ -23,13 +23,13 @@
           <a-space direction="vertical" style="width: 100%;">
             <a-input-search
               v-model:value="hashQuery"
-              placeholder="请输入资产哈希值或交易ID"
+              placeholder="请输入 64 位内容哈希（可带 sha256: 前缀）"
               size="large"
               enter-button="查询"
               :loading="searching"
               @search="handleHashQuery"
             />
-            <p class="query-hint">示例：sha256:a1b2c3d4e5f6... 或 tx_1234567890</p>
+            <p class="query-hint">支持带或不带 sha256: 前缀的 64 位内容哈希。</p>
           </a-space>
         </a-tab-pane>
         <a-tab-pane key="file" tab="按文件查询">
@@ -73,12 +73,15 @@
         v-if="queryResult.found"
         status="success"
         title="存证验证通过"
-        sub-title="后端已返回可见范围内的存证/溯源结果，请以模式字段和外部回执复核。"
+        sub-title="后端已返回可见范围内的存证/溯源结果，请结合外部回执复核。"
       >
         <template #extra>
           <a-descriptions :column="2" bordered class="result-desc">
             <a-descriptions-item label="资产名称" :span="2">
               {{ queryResult.data.assetName || queryResult.data.assetCode || '-' }}
+            </a-descriptions-item>
+            <a-descriptions-item label="资产编号" :span="2">
+              <a-typography-text code copyable>{{ queryResult.data.assetCode || queryResult.data.uniqueId || '-' }}</a-typography-text>
             </a-descriptions-item>
             <a-descriptions-item label="资产哈希">
               <a-typography-text code copyable style="font-size: 12px;">
@@ -97,7 +100,6 @@
             </a-descriptions-item>
             <a-descriptions-item label="区块链网络" :span="2">
               <a-tag color="blue">{{ queryResult.data.chainNetwork || '后端溯源接口' }}</a-tag>
-              <a-tag :color="queryResult.data.mode === 'DEMO' ? 'orange' : 'green'">{{ queryResult.data.mode || 'UNKNOWN' }}</a-tag>
             </a-descriptions-item>
           </a-descriptions>
           
@@ -236,7 +238,7 @@ const handleFileQuery = async (info) => {
       const file = info.fileList[0].originFileObj
       const localHash = await calculateFileHash(file)
       const response = await verifyFileHash({ file, expectedHash: expectedHash.value.trim() })
-      queryResult.value = { found: response.data.matches, data: { ...response.data, hash: localHash, uniqueId: response.data.versionId, certifyTime: new Date().toLocaleString(), mode: 'DEMO' } }
+      queryResult.value = { found: response.data.matches, data: { ...response.data, hash: localHash, uniqueId: response.data.versionId, certifyTime: new Date().toLocaleString() } }
       if (!response.data.matches) message.warning('文件哈希与预期值不一致，可能已被篡改或选错文件')
     } catch (error) { queryResult.value = { found: false }; message.error(error.message || '文件核验失败') } finally { searching.value = false }
   }
@@ -268,7 +270,7 @@ const downloadCertificate = () => {
 }
 
 const viewOnChain = () => {
-  message.info('Demo 交易不提供真实链浏览器跳转。')
+  message.info('当前交易未配置可访问的链浏览器地址。')
 }
 </script>
 

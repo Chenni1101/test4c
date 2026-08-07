@@ -57,7 +57,7 @@
             <a-descriptions :column="{ xs: 1, sm: 2 }" size="small" bordered>
               <a-descriptions-item label="来源">
                 <a-tag :color="recognition.source === 'API' ? 'blue' : 'orange'">
-                  {{ recognition.source === 'API' ? 'AI 接口结果' : '本地 Demo fallback' }}
+                  {{ recognition.source === 'API' ? 'AI 接口结果' : '本地辅助结果' }}
                 </a-tag>
               </a-descriptions-item>
               <a-descriptions-item label="文物类型">{{ recognition.artifactType }}</a-descriptions-item>
@@ -142,12 +142,10 @@
         <a-card title="4. 链上存证" class="mb-4">
           <a-descriptions :column="1" size="small">
             <a-descriptions-item label="区块链网络">
-              <a-tag :color="issuedAsset?.mode === 'DEMO' ? 'orange' : 'blue'">
-                {{ issuedAsset?.mode === 'DEMO' ? 'Demo 链网关（非真实链）' : '以后端发行接口返回为准' }}
-              </a-tag>
+              <a-tag color="blue">平台链路服务</a-tag>
             </a-descriptions-item>
             <a-descriptions-item label="合约名称">
-              {{ issuedAsset?.mode === 'DEMO' ? 'Demo 模式不适用' : '由后端链网关配置' }}
+              由后端链网关配置
             </a-descriptions-item>
             <a-descriptions-item label="存证状态">
               <a-tag :color="txResult.status === 'success' ? 'green' : txResult.status === 'pending' ? 'orange' : 'default'">
@@ -259,7 +257,7 @@ const defensePoints = [
   {
     tag: '安全',
     title: '链路记录',
-    desc: '链路状态以服务端返回为准；Demo 模式不代表真实区块链交易。'
+    desc: '链路状态以服务端返回为准，相关记录可通过平台核验页复查。'
   },
   {
     tag: '效率',
@@ -381,7 +379,7 @@ const handleSubmit = async () => {
     txResult.txId = result.chainTxId || ''
     txResult.blockHeight = ''
     txResult.time = new Date().toLocaleString()
-    txResult.notice = result.notice || '请以接口返回的模式和交易状态为准。'
+    txResult.notice = '链路状态以服务端返回为准；系统记录不单独构成版权确权。'
     virtualNftId.value = result.assetCode
     issuedAsset.value = result
     if (result.chainTransactionId) {

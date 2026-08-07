@@ -33,6 +33,7 @@ public class EvidenceService {
   private final ChainTransactionRepository chainTransactionRepository;
   // 区块链网关：封装与百度超级链的所有交互逻辑
   private final BlockchainGateway blockchainGateway;
+  private final AssetCodeGenerator assetCodeGenerator;
   // 区块链配置：存储节点地址、合约名称、网络ID等配置信息
   private final ChainProperties chainProperties;
   private final EvidenceModeProperties evidenceModeProperties;
@@ -47,6 +48,7 @@ public class EvidenceService {
       EvidenceRecordRepository evidenceRecordRepository,
       ChainTransactionRepository chainTransactionRepository,
       BlockchainGateway blockchainGateway,
+      AssetCodeGenerator assetCodeGenerator,
       ChainProperties chainProperties,
       EvidenceModeProperties evidenceModeProperties,
       CurrentUserProvider currentUserProvider,
@@ -55,6 +57,7 @@ public class EvidenceService {
     this.evidenceRecordRepository = evidenceRecordRepository;
     this.chainTransactionRepository = chainTransactionRepository;
     this.blockchainGateway = blockchainGateway;
+    this.assetCodeGenerator = assetCodeGenerator;
     this.chainProperties = chainProperties;
     this.evidenceModeProperties = evidenceModeProperties;
     this.currentUserProvider = currentUserProvider;
@@ -90,14 +93,15 @@ public class EvidenceService {
    */
   @Transactional(readOnly = true)
   public EvidenceResponse getEvidenceByHash(String hash) {
+    String normalizedHash = normalizeHash(hash);
     EvidenceRecordEntity evidence =
         evidenceRecordRepository
-            .findByFileHash(hash)
+            .findByFileHash(normalizedHash)
             .orElseThrow(() -> new EntityNotFoundException("未找到该哈希对应的存证记录"));
     AssetEntity asset = findAsset(evidence);
     UserAccountPrincipal actor = currentUserProvider.requireUser();
     assertCanRead(asset, actor);
-    auditService.record("READ_EVIDENCE", actor.getUsername(), hash, "asset=" + asset.getAssetName());
+    auditService.record("READ_EVIDENCE", actor.getUsername(), normalizedHash, "asset=" + asset.getAssetName());
     return toResponse(evidence, asset);
   }
 
@@ -128,6 +132,7 @@ public class EvidenceService {
 
     // 1. 保存链下业务数据：数字资产元信息
     AssetEntity asset = new AssetEntity();
+    asset.setAssetCode(assetCodeGenerator.nextCode());
     asset.setAssetName(request.assetName());
     asset.setAssetType(request.assetType());
     asset.setCreator(request.creator());
@@ -194,6 +199,7 @@ public class EvidenceService {
    */
   private EvidenceResponse toResponse(EvidenceRecordEntity evidence, AssetEntity asset) {
     return new EvidenceResponse(
+        asset.getAssetCode(),
         asset.getAssetName(),
         asset.getAssetType(),
         asset.getCreator(),
@@ -208,6 +214,11 @@ public class EvidenceService {
         evidence.getTimestampIso(),
         asset.getStatus(),
         evidenceModeProperties.getMode());
+  }
+
+  private String normalizeHash(String value) {
+    String digest = value.replaceFirst("(?i)^sha256:", "").toLowerCase(java.util.Locale.ROOT);
+    return "sha256:" + digest;
   }
 
   private AssetEntity findAsset(EvidenceRecordEntity evidence) {
