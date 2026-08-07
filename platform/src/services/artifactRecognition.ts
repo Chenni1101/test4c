@@ -13,7 +13,7 @@ function localFallback(file: File): ArtifactRecognition {
   const name = file.name.toLowerCase()
   const artifactType = /瓶|vase|瓷|pottery/.test(name) ? 'image' : 'image'
   const description = `该图像文件「${file.name}」已完成本地演示识别。建议结合馆藏档案、来源证明和人工审核补充文物信息。`
-  return { source: 'DEMO_LOCAL', artifactType, era: '待人工核验', description, keywords: ['文博数字资产', '图像素材', '待人工核验'], notice: '本地 Demo 识别结果仅用于辅助填写，不是权威文物鉴定结论。' }
+  return { source: 'DEMO_LOCAL', artifactType, era: '待人工核验', description, keywords: ['文博数字资产', '图像素材', '待人工核验'], notice: '本地辅助识别结果仅用于辅助填写，不是权威文物鉴定结论。' }
 }
 
 function normalize(data: any, fallback: ArtifactRecognition): ArtifactRecognition {

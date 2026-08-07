@@ -16,7 +16,6 @@ import { useAuthStore } from '@/stores/auth'
 
 const collapsed = ref(false)
 const isMobile = ref(false)
-const showDemoNotice = ref(true)
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -151,7 +150,6 @@ const handleLogout = async () => {
           </div>
         </div>
         <div v-if="!isMobile" class="header-right">
-          <a-space size="small"><a-switch v-model:checked="showDemoNotice" size="small" /><a-tag v-if="showDemoNotice" color="orange" class="status-tag">DEMO / Mock 模式</a-tag></a-space>
           <template v-if="auth.isAuthenticated">
             <a-tag color="blue" class="status-tag">{{ auth.user?.displayName }} · {{ auth.roles.join(' / ') }}</a-tag>
             <a-button size="small" @click="handleLogout">退出</a-button>
@@ -163,7 +161,7 @@ const handleLogout = async () => {
         <RouterView />
       </a-layout-content>
       <a-layout-footer class="app-footer">
-        文旅数字资产可信存证系统 ©2026 上海对外经贸大学
+        文旅数字资产可信存证系统 · 当前环境包含平台功能展示数据，存证记录不单独构成版权确权 ©2026 上海对外经贸大学
       </a-layout-footer>
     </a-layout>
   </a-layout>

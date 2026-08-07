@@ -1,6 +1,7 @@
 package edu.suibe.evidence.dto;
 
 public record EvidenceResponse(
+    String assetCode,
     String assetName,
     String assetType,
     String creator,

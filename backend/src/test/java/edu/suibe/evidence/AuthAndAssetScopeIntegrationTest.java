@@ -44,7 +44,13 @@ class AuthAndAssetScopeIntegrationTest {
                 .header("Authorization", "Bearer " + tokenA)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(evidenceRequest))
-        .andExpect(status().isOk());
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.assetCode").value(org.hamcrest.Matchers.startsWith("AST-")));
+
+    mockMvc
+        .perform(get("/api/evidence/{hash}", "c".repeat(64)).header("Authorization", "Bearer " + tokenA))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.fileHash").value("sha256:" + "c".repeat(64)));
 
     mockMvc
         .perform(get("/api/assets").header("Authorization", "Bearer " + tokenB))
