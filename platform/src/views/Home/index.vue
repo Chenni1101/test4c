@@ -132,6 +132,10 @@
               <h4>{{ exhibit.name }}</h4>
               <p class="exhibit-origin">{{ exhibit.origin }}</p>
               <p class="exhibit-desc">{{ exhibit.description }}</p>
+              <div v-if="exhibit.certified" class="exhibit-borrow-action">
+                <a-tag v-if="isLentOut(exhibit.name)" color="orange">借出中</a-tag>
+                <a-button type="link" size="small" :disabled="isLentOut(exhibit.name)" @click.stop="openBorrow(exhibit)">{{ isLentOut(exhibit.name) ? '借出中' : '借出' }}</a-button>
+              </div>
             </div>
           </div>
         </a-col>
@@ -305,9 +309,11 @@
           <a-button v-if="!currentExhibit.certified" type="primary" @click="$router.push('/evidence')">
             立即存证
           </a-button>
+          <a-button v-else type="primary" :disabled="isLentOut(currentExhibit.name)" @click="openBorrow(currentExhibit)">{{ isLentOut(currentExhibit.name) ? '借出中' : '借出' }}</a-button>
         </div>
       </div>
     </a-modal>
+    <BorrowRecordModal v-model:open="borrowModalOpen" direction="OUT" :artifact-name="borrowArtifact?.name" @saved="refreshBorrowState" />
   </div>
 </template>
 
@@ -331,9 +337,14 @@ import {
   HddOutlined
 } from '@ant-design/icons-vue'
 import MarketAnalysisPanel from '../../components/MarketAnalysisPanel.vue'
+import BorrowRecordModal from '../../components/BorrowRecordModal.vue'
+import { isArtifactOnLoan } from '../../services/borrowRecords'
 
 const showExhibitModal = ref(false)
 const currentExhibit = ref(null)
+const borrowModalOpen = ref(false)
+const borrowArtifact = ref(null)
+const borrowVersion = ref(0)
 
 const heroSlides = [
     {
@@ -521,6 +532,20 @@ const toggleCollect = (exhibit) => {
   } else {
     message.info(`已取消收藏`)
   }
+}
+
+const openBorrow = (exhibit) => {
+  borrowArtifact.value = exhibit
+  borrowModalOpen.value = true
+}
+
+const isLentOut = (artifactName) => {
+  borrowVersion.value
+  return isArtifactOnLoan(artifactName)
+}
+
+const refreshBorrowState = () => {
+  borrowVersion.value += 1
 }
 </script>
 
@@ -893,6 +918,15 @@ const toggleCollect = (exhibit) => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.exhibit-borrow-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #edf2f7;
 }
 
 .section-more {

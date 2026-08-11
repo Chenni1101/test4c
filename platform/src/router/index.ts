@@ -11,6 +11,7 @@ import AuthView from '../views/AuthView.vue'
 import AuthorizationView from '../views/AuthorizationView.vue'
 import AssetDetailView from '../views/AssetDetailView.vue'
 import TraceView from '../views/TraceView.vue'
+import BorrowManagementView from '../views/BorrowManagementView.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
@@ -42,6 +43,7 @@ const router = createRouter({
     { path: '/assets/:assetCode', name: 'asset-detail', component: AssetDetailView, meta: { requiresAuth: true, roles: ['CREATOR', 'MUSEUM_ADMIN', 'SUPER_ADMIN'] } },
     { path: '/authorizations', name: 'authorization', component: AuthorizationView, meta: { requiresAuth: true, roles: ['CREATOR', 'MUSEUM_ADMIN', 'SUPER_ADMIN'] } },
     { path: '/trace', name: 'trace', component: TraceView, meta: { requiresAuth: true, roles: ['CREATOR', 'MUSEUM_ADMIN', 'SUPER_ADMIN'] } },
+    { path: '/borrow', name: 'borrow', component: BorrowManagementView, meta: { requiresAuth: true, roles: ['CREATOR', 'MUSEUM_ADMIN', 'SUPER_ADMIN'] } },
     {
       path: '/market',
       name: 'market',
