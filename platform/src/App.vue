@@ -10,7 +10,8 @@ import {
   BlockOutlined,
   RobotOutlined,
   AuditOutlined,
-  FileSearchOutlined
+  FileSearchOutlined,
+  SwapOutlined
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -48,6 +49,7 @@ const allMenuItems = [
     title: '存证查询'
   },
   { key: 'authorization', icon: AuditOutlined, label: '授权管理', title: '授权管理' },
+  { key: 'borrow', icon: SwapOutlined, label: '借展管理', title: '借展管理' },
   { key: 'trace', icon: FileSearchOutlined, label: '全链路核验', title: '全链路核验' },
   {
     key: 'market',
@@ -64,7 +66,7 @@ const allMenuItems = [
 ]
 
 const menuItems = computed(() => allMenuItems.filter((item) => {
-  if (['evidence', 'asset', 'query', 'authorization', 'trace'].includes(item.key)) return auth.hasAnyRole(['CREATOR', 'MUSEUM_ADMIN', 'SUPER_ADMIN'])
+  if (['evidence', 'asset', 'query', 'authorization', 'borrow', 'trace'].includes(item.key)) return auth.hasAnyRole(['CREATOR', 'MUSEUM_ADMIN', 'SUPER_ADMIN'])
   return true
 }))
 
