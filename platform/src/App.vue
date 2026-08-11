@@ -163,7 +163,7 @@ const handleLogout = async () => {
         <RouterView />
       </a-layout-content>
       <a-layout-footer class="app-footer">
-        文旅数字资产可信存证系统 · 当前环境包含平台功能展示数据，存证记录不单独构成版权确权 ©2026 上海对外经贸大学
+        文旅数字资产可信存证系统
       </a-layout-footer>
     </a-layout>
   </a-layout>

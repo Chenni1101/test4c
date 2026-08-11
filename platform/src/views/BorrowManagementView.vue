@@ -38,7 +38,7 @@ onMounted(loadRecords)
 
 <template>
   <section class="borrow-page">
-    <a-page-header class="page-header" title="藏品借展管理" sub-title="借展台账仅保存在当前浏览器，用于业务演示与现场操作留痕。">
+    <a-page-header class="page-header" title="藏品借展管理">
       <template #extra><a-button type="primary" @click="openInbound">登记借入</a-button><a-button @click="loadRecords">刷新记录</a-button></template>
     </a-page-header>
     <a-row :gutter="[16, 16]" class="summary"><a-col :xs="24" :sm="8"><a-card><a-statistic title="借展记录" :value="records.length" suffix="条" /></a-card></a-col><a-col :xs="24" :sm="8"><a-card><a-statistic title="进行中" :value="activeCount" suffix="条" :value-style="{ color: '#d97706' }" /></a-card></a-col><a-col :xs="24" :sm="8"><a-card><a-statistic title="已逾期" :value="overdueCount" suffix="条" :value-style="{ color: overdueCount ? '#dc2626' : '#64748b' }" /></a-card></a-col></a-row>
