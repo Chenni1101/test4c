@@ -1,9 +1,10 @@
 import client, { requestIdempotencyKey } from './apiClient'
+import { getOfflineChainTransaction, getOfflineIpfsFile, isOfflineDemoMode, issueOfflineAsset } from './offlineDemo'
 
 const bearerHeaders = (_accessToken, extra = {}) => extra
 
 const issueAsset = ({ accessToken, idempotencyKey, asset }) =>
-  client.post('/assets/issue', asset, {
+  isOfflineDemoMode ? issueOfflineAsset(asset) : client.post('/assets/issue', asset, {
     headers: bearerHeaders(accessToken, { 'Idempotency-Key': idempotencyKey || requestIdempotencyKey('issue') })
   })
 
@@ -18,9 +19,9 @@ const retryIssuance = ({ accessToken, transactionId }) =>
   })
 
 const getIpfsFile = ({ accessToken, cid }) =>
-  client.get(`/assets/ipfs/${encodeURIComponent(cid)}`, { headers: bearerHeaders(accessToken) })
+  isOfflineDemoMode ? getOfflineIpfsFile(cid) : client.get(`/assets/ipfs/${encodeURIComponent(cid)}`, { headers: bearerHeaders(accessToken) })
 
 const getChainTransaction = ({ accessToken, transactionId }) =>
-  client.get(`/assets/chain-transactions/${transactionId}`, { headers: bearerHeaders(accessToken) })
+  isOfflineDemoMode ? getOfflineChainTransaction(transactionId) : client.get(`/assets/chain-transactions/${transactionId}`, { headers: bearerHeaders(accessToken) })
 
 export { issueAsset, issueAssetsBatch, retryIssuance, getIpfsFile, getChainTransaction }
