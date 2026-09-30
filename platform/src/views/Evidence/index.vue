@@ -142,7 +142,9 @@
         <a-card title="4. 链上存证" class="mb-4">
           <a-descriptions :column="1" size="small">
             <a-descriptions-item label="区块链网络">
-              <a-tag color="blue">平台链路服务</a-tag>
+              <a-tag :color="isOfflineDemoMode ? 'orange' : 'blue'">
+                {{ isOfflineDemoMode ? '现场离线演示适配器' : '平台链路服务' }}
+              </a-tag>
             </a-descriptions-item>
             <a-descriptions-item label="合约名称">
               由后端链网关配置
@@ -209,13 +211,12 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { SafetyCertificateOutlined, InboxOutlined } from '@ant-design/icons-vue'
 import { calculateFileHash } from '../../utils/hash'
-import { useAuthStore } from '@/stores/auth'
 import { issueAsset, getChainTransaction } from '@/services/assetIssuanceApi'
 import { recognizeArtifact } from '@/services/artifactRecognition'
 import { downloadEvidenceCertificate } from '@/services/evidenceCertificate'
+import { isOfflineDemoMode } from '@/services/offlineDemo'
 
 const router = useRouter()
-const auth = useAuthStore()
 const fileList = ref([])
 const submitting = ref(false)
 const showSuccessModal = ref(false)
@@ -347,15 +348,9 @@ const handleSubmit = async () => {
     message.warning('请填写资产类型和创作者')
     return
   }
-  if (!auth.isAuthenticated) {
-    message.warning('请先登录后再发行资产')
-    router.push('/login')
-    return
-  }
-
   submitting.value = true
   txResult.status = 'pending'
-  txResult.statusText = '正在调用后端发行接口...'
+  txResult.statusText = isOfflineDemoMode ? '正在生成演示存证记录...' : '正在调用后端发行接口...'
   try {
     const file = fileList.value[0].originFileObj
     const response = await issueAsset({
@@ -379,7 +374,9 @@ const handleSubmit = async () => {
     txResult.txId = result.chainTxId || ''
     txResult.blockHeight = ''
     txResult.time = new Date().toLocaleString()
-    txResult.notice = '链路状态以服务端返回为准；系统记录不单独构成版权确权。'
+    txResult.notice = isOfflineDemoMode
+      ? '当前为现场离线演示回执，不代表真实链上交易，也不单独构成版权确权。'
+      : '链路状态以服务端返回为准；系统记录不单独构成版权确权。'
     virtualNftId.value = result.assetCode
     issuedAsset.value = result
     if (result.chainTransactionId) {
@@ -391,7 +388,7 @@ const handleSubmit = async () => {
       }
     }
     showSuccessModal.value = true
-    message.success('后端已返回资产发行结果')
+    message.success(isOfflineDemoMode ? '已生成本地演示资产发行结果' : '后端已返回资产发行结果')
   } catch (error) {
     txResult.status = 'failed'
     txResult.statusText = '发行失败'

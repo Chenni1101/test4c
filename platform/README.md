@@ -29,6 +29,14 @@ See [Vite Configuration Reference](https://vite.dev/config/).
 npm install
 ```
 
+## 现场离线演示模式
+
+前端默认启用 `VITE_OFFLINE_DEMO=true`。该模式隐藏登录/注册入口，资产发行、版本、授权、
+核验和溯源均使用浏览器本地演示适配器，因此答辩现场可在断网、后端关闭的情况下稳定运行。
+页面会明确标注“现场离线演示模式”，生成的 `demo_tx_*` 和 `demo-cid-*` 只用于演示流程，
+不得表述为真实链交易或真实 IPFS CID。需要联调后端时，将环境变量设为
+`VITE_OFFLINE_DEMO=false` 并重启 Vite。
+
 ### Compile and Hot-Reload for Development
 
 ```sh

@@ -13,13 +13,12 @@ import {
   FileSearchOutlined,
   SwapOutlined
 } from '@ant-design/icons-vue'
-import { useAuthStore } from '@/stores/auth'
+import { isOfflineDemoMode } from '@/services/offlineDemo'
 
 const collapsed = ref(false)
 const isMobile = ref(false)
 const route = useRoute()
 const router = useRouter()
-const auth = useAuthStore()
 
 const selectedKeys = computed(() => [route.name as string])
 
@@ -65,10 +64,7 @@ const allMenuItems = [
   }
 ]
 
-const menuItems = computed(() => allMenuItems.filter((item) => {
-  if (['evidence', 'asset', 'query', 'authorization', 'borrow', 'trace'].includes(item.key)) return auth.hasAnyRole(['CREATOR', 'MUSEUM_ADMIN', 'SUPER_ADMIN'])
-  return true
-}))
+const menuItems = computed(() => allMenuItems)
 
 const mainOffset = computed(() => {
   if (isMobile.value) return 0
@@ -84,7 +80,6 @@ const updateIsMobile = () => {
 }
 
 onMounted(() => {
-  auth.hydrate()
   updateIsMobile()
   window.addEventListener('resize', updateIsMobile)
 })
@@ -100,10 +95,6 @@ const handleMenuClick = ({ key }: { key: string }) => {
   }
 }
 
-const handleLogout = async () => {
-  auth.logout()
-  await router.push('/login')
-}
 </script>
 
 <template>
@@ -152,11 +143,9 @@ const handleLogout = async () => {
           </div>
         </div>
         <div v-if="!isMobile" class="header-right">
-          <template v-if="auth.isAuthenticated">
-            <a-tag color="blue" class="status-tag">{{ auth.user?.displayName }} · {{ auth.roles.join(' / ') }}</a-tag>
-            <a-button size="small" @click="handleLogout">退出</a-button>
-          </template>
-          <a-button v-else size="small" type="primary" @click="router.push('/login')">登录</a-button>
+          <a-tag :color="isOfflineDemoMode ? 'orange' : 'green'" class="status-tag">
+            {{ isOfflineDemoMode ? '现场离线演示模式' : '在线服务模式' }}
+          </a-tag>
         </div>
       </a-layout-header>
       <a-layout-content class="app-content" :class="{ 'app-content-mobile': isMobile }">
